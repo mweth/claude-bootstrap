@@ -899,6 +899,53 @@ CMD_EOF
 }
 
 # ============================================================================
+# INFISICAL CLI SETUP
+# ============================================================================
+INFISICAL_SERVER="http://10.0.0.169:8082"
+
+setup_infisical() {
+    info "Setting up Infisical CLI..."
+
+    if command -v infisical &>/dev/null; then
+        info "Infisical CLI already installed: $(infisical --version 2>/dev/null)"
+    else
+        if [[ "$(uname -s)" == "Linux" ]]; then
+            curl -1sLf 'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.deb.sh' | sudo bash 2>/dev/null
+            sudo apt-get install -y infisical 2>/dev/null
+        elif [[ "$(uname -s)" == "Darwin" ]]; then
+            brew install infisical/get-cli/infisical 2>/dev/null
+        fi
+
+        if command -v infisical &>/dev/null; then
+            info "Infisical CLI installed"
+        else
+            warn "Could not auto-install Infisical CLI. Install manually:"
+            echo "  https://infisical.com/docs/cli/overview"
+            return
+        fi
+    fi
+
+    # Point CLI at internal server
+    infisical config set api-url "$INFISICAL_SERVER" 2>/dev/null
+    info "Infisical configured to use $INFISICAL_SERVER"
+
+    # Check if already logged in
+    if infisical user 2>/dev/null | grep -q "email"; then
+        info "Already logged in to Infisical"
+    else
+        warn "Run 'infisical login' to authenticate with $INFISICAL_SERVER"
+    fi
+
+    echo ""
+    echo "  Infisical quick reference:"
+    echo "    Web UI:          $INFISICAL_SERVER"
+    echo "    Login:           infisical login"
+    echo "    Pull .env:       infisical export --env=prod > .env"
+    echo "    Run with secrets: infisical run --env=prod -- python app.py"
+    echo ""
+}
+
+# ============================================================================
 # PLUGIN INSTALLATION
 # ============================================================================
 install_plugins() {
@@ -943,6 +990,7 @@ case "$MODE" in
     --global-only)
         setup_global
         install_plugins
+        setup_infisical
         ;;
     --project-only)
         setup_project
@@ -950,6 +998,7 @@ case "$MODE" in
     full|*)
         setup_global
         install_plugins
+        setup_infisical
         setup_project
         ;;
 esac
