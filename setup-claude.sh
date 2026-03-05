@@ -895,6 +895,105 @@ $ARGUMENTS
 CMD_EOF
     info "Wrote /orchestrate command"
 
+    # --- resources.md (network services reference) ---
+    cat > "$PROJECT_CLAUDE/resources.md" << 'RES_EOF'
+# Network Resources
+
+Reference for internal services available to all projects.
+
+## Secrets Management (Infisical)
+
+- **Web UI**: http://10.0.0.169:8082
+- **Server**: 10.0.0.169 (Dockge-managed Docker stack)
+
+### CLI Usage
+
+```bash
+# First time on a new machine:
+infisical login --domain http://10.0.0.169:8082/api
+
+# Pull secrets as .env file:
+infisical export --domain http://10.0.0.169:8082/api --env=dev > .env
+
+# Inject secrets directly into a process (no .env file needed):
+infisical run --domain http://10.0.0.169:8082/api --env=dev -- python app.py
+
+# Link a project directory to an Infisical project (creates .infisical.json):
+infisical init --domain http://10.0.0.169:8082/api
+```
+
+### Project: "Shared"
+
+Contains all cross-project credentials (API keys, cloud provider creds, etc.).
+Use `--projectId ab49c9eb-f8f3-430b-83d1-556f7c97854f` or run `infisical init` to link.
+
+## Email Service
+
+- **API Base**: https://send.561park.com/api
+- **Host**: 10.0.0.169 (SendGrid relay)
+
+### Send Email
+
+```bash
+curl -X POST https://send.561park.com/api/send \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your-token>" \
+  -d '{
+    "to": "recipient@example.com",
+    "subject": "Subject line",
+    "text": "Plain text body",
+    "html": "<h1>HTML body</h1>"
+  }'
+```
+
+### API Reference
+
+```
+POST /api/send          Send an email
+GET  /api/health        Health check
+GET  /api               Full API docs
+```
+
+### Usage from Python
+
+```python
+import requests
+
+def send_email(to: str, subject: str, body: str, html: str | None = None) -> bool:
+    r = requests.post(
+        "https://send.561park.com/api/send",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": "Bearer <your-token>"
+        },
+        json={
+            "to": to,
+            "subject": subject,
+            "text": body,
+            "html": html or body,
+        }
+    )
+    return r.ok
+```
+
+## Docker Host (10.0.0.169)
+
+- **Dockge UI**: http://10.0.0.169:5001
+- **Stacks directory**: `/opt/stacks/`
+- All Docker Compose stacks managed via Dockge
+
+### Running Services
+
+| Service | Port | URL |
+|---------|------|-----|
+| Dockge | 5001 | http://10.0.0.169:5001 |
+| Infisical | 8082 | http://10.0.0.169:8082 |
+| SendGrid Relay | 8025 | http://10.0.0.169:8025 |
+| Paperless-ngx | 8000 | http://10.0.0.169:8000 |
+| Stash | 9999 | http://10.0.0.169:9999 |
+RES_EOF
+    info "Wrote resources.md (network services reference)"
+
     info "Project setup complete. Commands available: /adversarial-review, /handover, /orchestrate"
 }
 
@@ -910,8 +1009,15 @@ setup_infisical() {
         info "Infisical CLI already installed: $(infisical --version 2>/dev/null)"
     else
         if [[ "$(uname -s)" == "Linux" ]]; then
-            curl -1sLf 'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.deb.sh' | sudo bash 2>/dev/null
-            sudo apt-get install -y infisical 2>/dev/null
+            # Try apt first, fall back to direct download
+            if command -v apt-get &>/dev/null; then
+                curl -1sLf 'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.deb.sh' | sudo bash 2>/dev/null
+                sudo apt-get update -qq 2>/dev/null && sudo apt-get install -y infisical 2>/dev/null
+            fi
+            # If apt didn't work, try npm
+            if ! command -v infisical &>/dev/null && command -v npm &>/dev/null; then
+                npm install -g @infisical/cli 2>/dev/null
+            fi
         elif [[ "$(uname -s)" == "Darwin" ]]; then
             brew install infisical/get-cli/infisical 2>/dev/null
         fi
@@ -925,23 +1031,21 @@ setup_infisical() {
         fi
     fi
 
-    # Point CLI at internal server
-    infisical config set api-url "$INFISICAL_SERVER" 2>/dev/null
-    info "Infisical configured to use $INFISICAL_SERVER"
-
     # Check if already logged in
-    if infisical user 2>/dev/null | grep -q "email"; then
+    if INFISICAL_API_URL="$INFISICAL_SERVER/api" infisical user 2>/dev/null | grep -q "email"; then
         info "Already logged in to Infisical"
     else
-        warn "Run 'infisical login' to authenticate with $INFISICAL_SERVER"
+        warn "Run this to authenticate:"
+        echo "    infisical login --domain $INFISICAL_SERVER/api"
     fi
 
     echo ""
     echo "  Infisical quick reference:"
-    echo "    Web UI:          $INFISICAL_SERVER"
-    echo "    Login:           infisical login"
-    echo "    Pull .env:       infisical export --env=prod > .env"
-    echo "    Run with secrets: infisical run --env=prod -- python app.py"
+    echo "    Web UI:            $INFISICAL_SERVER"
+    echo "    Login:             infisical login --domain $INFISICAL_SERVER/api"
+    echo "    Pull .env:         infisical export --domain $INFISICAL_SERVER/api --env=dev > .env"
+    echo "    Run with secrets:  infisical run --domain $INFISICAL_SERVER/api --env=dev -- python app.py"
+    echo "    Link project dir:  infisical init --domain $INFISICAL_SERVER/api"
     echo ""
 }
 
