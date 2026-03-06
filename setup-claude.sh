@@ -1056,13 +1056,13 @@ install_plugins() {
     if ! command -v claude &>/dev/null; then
         warn "Claude CLI not found in PATH. Skipping plugin installation."
         warn "After installing Claude Code, run these manually:"
-        echo "  claude plugins install frontend-design@claude-plugins-official"
-        echo "  claude plugins install github@claude-plugins-official"
-        echo "  claude plugins install feature-dev@claude-plugins-official"
-        echo "  claude plugins install agent-sdk-dev@claude-plugins-official"
-        echo "  claude plugins install ralph-wiggum@claude-plugins-official"
-        echo "  claude plugins install security-guidance@claude-plugins-official"
-        echo "  claude plugins install ralph-wiggum@claude-code-plugins"
+        echo "  claude plugin install frontend-design@claude-plugins-official"
+        echo "  claude plugin install github@claude-plugins-official"
+        echo "  claude plugin install feature-dev@claude-plugins-official"
+        echo "  claude plugin install agent-sdk-dev@claude-plugins-official"
+        echo "  claude plugin install ralph-wiggum@claude-plugins-official"
+        echo "  claude plugin install security-guidance@claude-plugins-official"
+        echo "  claude plugin install ralph-wiggum@claude-code-plugins"
         return
     fi
 
@@ -1077,7 +1077,7 @@ install_plugins() {
         "ralph-wiggum@claude-code-plugins"
     )
     for plugin in "${plugins[@]}"; do
-        claude plugins install "$plugin" 2>/dev/null && info "Installed $plugin" || warn "Failed to install $plugin"
+        claude plugin install "$plugin" 2>/dev/null && info "Installed $plugin" || warn "Failed to install $plugin"
     done
 }
 
