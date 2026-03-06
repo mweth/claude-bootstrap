@@ -348,38 +348,33 @@ setup_project() {
     mkdir -p "$PROJECT_CLAUDE/commands"
 
     # --- Project settings.json (hooks for Python auto-formatting) ---
-    # Uses $PWD so it works in any project directory
-    cat > "$PROJECT_CLAUDE/settings.json" << PROJ_SETTINGS_EOF
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cd $PWD && if [[ \"\\\$TOOL_FILE_PATH\" == *.py ]]; then ruff check --fix \"\\\$TOOL_FILE_PATH\" 2>/dev/null; black \"\\\$TOOL_FILE_PATH\" 2>/dev/null; fi || true"
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "if [[ \"\\\$TOOL_FILE_PATH\" == *.env* || \"\\\$TOOL_FILE_PATH\" == *secret* || \"\\\$TOOL_FILE_PATH\" == *config.py ]]; then echo '[SECURITY] Modifying sensitive file: '\"\\\$TOOL_FILE_PATH\"; fi || true"
-          }
-        ]
-      }
-    ]
-  },
-  "enabledPlugins": {
-    "ralph-loop@claude-plugins-official": true
-  }
+    local project_dir="$PWD"
+    python3 -c "
+import json, sys
+settings = {
+    'hooks': {
+        'PostToolUse': [{
+            'matcher': 'Edit|Write',
+            'hooks': [{
+                'type': 'command',
+                'command': 'cd ' + sys.argv[1] + ' && if [[ \"\$TOOL_FILE_PATH\" == *.py ]]; then ruff check --fix \"\$TOOL_FILE_PATH\" 2>/dev/null; black \"\$TOOL_FILE_PATH\" 2>/dev/null; fi || true'
+            }]
+        }],
+        'PreToolUse': [{
+            'matcher': 'Write|Edit',
+            'hooks': [{
+                'type': 'command',
+                'command': 'if [[ \"\$TOOL_FILE_PATH\" == *.env* || \"\$TOOL_FILE_PATH\" == *secret* || \"\$TOOL_FILE_PATH\" == *config.py ]]; then echo \"[SECURITY] Modifying sensitive file: \$TOOL_FILE_PATH\"; fi || true'
+            }]
+        }]
+    },
+    'enabledPlugins': {
+        'ralph-loop@claude-plugins-official': True
+    }
 }
-PROJ_SETTINGS_EOF
+with open(sys.argv[2], 'w') as f:
+    json.dump(settings, f, indent=2)
+" "$project_dir" "$PROJECT_CLAUDE/settings.json"
     info "Wrote project settings.json (hooks: ruff/black auto-format, security warnings)"
 
     # --- Project settings.local.json (project-specific permissions) ---
