@@ -694,9 +694,9 @@ You are exiting this session and must preserve all working context for the next 
 ## Current State
 
 - Working directory: !`pwd`
-- Current branch: !`git branch --show-current`
-- Uncommitted changes: !`git status --short | head -20`
-- Recent commits (this session): !`git log --oneline -5`
+- Current branch: !`git branch --show-current 2>/dev/null || echo "not a git repo"`
+- Uncommitted changes: !`git status --short 2>/dev/null | head -20 || echo "N/A"`
+- Recent commits (this session): !`git log --oneline -5 2>/dev/null || echo "N/A"`
 
 ## Step 1: Gather Session Context
 
