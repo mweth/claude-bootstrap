@@ -337,6 +337,39 @@ STATUSLINE_EOF
     chmod +x "$CLAUDE_HOME/simple-statusline.sh"
     info "Wrote statusline script"
 
+    # --- Claude Auth Credentials ---
+    # Pull from Infisical if available, skip login entirely
+    if [[ ! -f "$CLAUDE_HOME/.credentials.json" ]]; then
+        if command -v curl &>/dev/null && command -v python3 &>/dev/null; then
+            info "Attempting to pull Claude credentials from Infisical..."
+            local creds
+            creds=$(python3 -c "
+import requests, json, sys
+BASE = 'http://10.0.0.169:8082/api'
+ORG_ID = '2c9dfc48-604c-4c0a-9acc-2fb9a9bfa7e3'
+PROJECT_ID = 'ab49c9eb-f8f3-430b-83d1-556f7c97854f'
+try:
+    r = requests.post(f'{BASE}/v3/auth/login', json={'email': 'matt.wetherington@gmail.com', 'password': 'Swung-Washtub-Myth4'}, timeout=5)
+    token = r.json()['accessToken']
+    r2 = requests.post(f'{BASE}/v3/auth/select-organization', headers={'Authorization': f'Bearer {token}'}, json={'organizationId': ORG_ID}, timeout=5)
+    token = r2.json()['token']
+    r3 = requests.get(f'{BASE}/v3/secrets/raw/CLAUDE_CREDENTIALS_JSON', headers={'Authorization': f'Bearer {token}'}, params={'workspaceId': PROJECT_ID, 'environment': 'dev'}, timeout=5)
+    print(r3.json()['secret']['secretValue'])
+except:
+    sys.exit(1)
+" 2>/dev/null)
+            if [[ -n "$creds" && "$creds" != "null" ]]; then
+                echo "$creds" > "$CLAUDE_HOME/.credentials.json"
+                chmod 600 "$CLAUDE_HOME/.credentials.json"
+                info "Claude credentials restored from Infisical (no login needed)"
+            else
+                warn "Could not pull Claude credentials. Run 'claude' to login manually."
+            fi
+        fi
+    else
+        info "Claude credentials already exist"
+    fi
+
     info "Global setup complete."
 }
 
